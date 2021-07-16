@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en-us">
+
+<head>
+  <meta charset="utf-8">
+  <title>Cash Flow Forecast</title>
+  <meta name="description" content="A simple app for forecasting the cash flow in and out of a single account. It's extremely useful for keeping your finances in check when recurring transactions don't all occur on the same cycle, e.g. monthly rent payments, bi-weekly paychecks, and weekly meal kit subscriptions.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="Cash Flow Forecast">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kevinsmith.github.io/cash-flow-forecast/">
+  <meta property="og:image" content="">
+
+  <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://rsms.me/inter/inter.css" rel="stylesheet">
+  <style>
+    html { font-family: 'Inter',ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'; }
+    @supports (font-variation-settings: normal) {
+      html { font-family: 'Inter var',ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'; }
+    }
+  </style>
+
+  <script defer src="https://unpkg.com/currency.js@^2/dist/currency.min.js"></script>
+  <script defer src="https://unpkg.com/dayjs@^1/dayjs.min.js"></script>
+  <script defer src="https://unpkg.com/alpinejs@^3/dist/cdn.min.js"></script>
+  <script defer src="https://unpkg.com/chart.js@^3/dist/chart.min.js"></script>
+  <script defer src="https://unpkg.com/chartjs-plugin-annotation@^1/dist/chartjs-plugin-annotation.min.js"></script>
+</head>
+
+<body>
+
+<div class="container max-w-screen-lg mx-auto px-4 sm:px-6 lg:px-8" x-data="forecast">
+  <h1 class="text-3xl font-extrabold mt-8 mb-10">Cash Flow Forecast</h1>
+
+  <canvas id="forecastLineChart" width="400" height="150" class="mb-10"></canvas>
+
+  <div class="flex flex-col">
+    <div class="-my-2 mb-6 overflow-x-auto sm:-mx-6 lg:-mx-8">
+      <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+        <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
+                Date
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
+                Repeats
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
+                Description
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
+                Amount
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
+                Balance
+              </th>
+            </tr>
+            </thead>
+            <tbody>
+            <template x-for="(transaction, index) in transactions.forecast">
+              <tr x-data="{
+                date: formatDateForDisplay(transaction.date),
+                repeats: formatRepeatsForDisplay(transaction.repeats),
+                description: transaction.description,
+                amount: transaction.amount > 0 ? '+' + formatAmountForDisplay(transaction.amount) : formatAmountForDisplay(transaction.amount.multiply(-1)),
+                balance: formatAmountForDisplay(transaction.balance),
+              }" :class="!transaction.isRepeat ? index % 2 ? 'bg-blue-50' : 'bg-blue-100' : index % 2 ? 'bg-white' : 'bg-gray-50'">
+                <td x-text="date" class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium text-gray-900"></td>
+                <td x-text="repeats" class="px-6 py-3 whitespace-nowrap text-sm text-gray-500 text-center"></td>
+                <td x-text="description" class="px-6 py-3 whitespace-nowrap text-sm text-gray-500"></td>
+                <td x-text="amount" class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium text-gray-900" :class="transaction.amount > 0 && 'text-green-600'"></td>
+                <td
+                  x-text="balance"
+                  class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium text-gray-900"
+                  :class="transaction.balance < 0 && 'text-red-500'"
+                ></td>
+              </tr>
+            </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('alpine:init', function () {
+    Alpine.data('forecast', function () {
+      return {
+        timespanMonths: 6, // TODO: Allow changing this in the UI
+        forecastStartDate: null,
+        forecastEndDate: null,
+        forecastLineChart: null,
+        transactions: {
+          // TODO: Add support for ending a repeated transaction
+          source: [
+            {
+              id: 1,
+              date: dayjs('2021-08-01'),
+              repeats: null,
+              description: 'Starting Balance',
+              amount: currency('750'),
+            },
+            {
+              id: 2,
+              date: dayjs('2021-08-06'),
+              repeats: '2w',
+              description: 'Paycheck',
+              amount: currency('2,246.65'),
+            },
+            {
+              id: 3,
+              date: dayjs('2021-08-02'),
+              repeats: '1w',
+              description: 'Weekly Spending Money',
+              amount: currency('-400'),
+            },
+            {
+              id: 4,
+              date: dayjs('2021-08-03'),
+              repeats: '1w',
+              description: 'Blue Apron Meal Kit Subscription',
+              amount: currency('-50.95'),
+            },
+            {
+              id: 5,
+              date: dayjs('2021-08-20'),
+              repeats: '1M',
+              description: 'Car Payment',
+              amount: currency('-400'),
+            },
+            {
+              id: 6,
+              date: dayjs('2021-08-09'),
+              repeats: '1w',
+              description: 'Roth IRA Contribution',
+              amount: currency('-75'),
+            },
+            {
+              id: 7,
+              date: dayjs('2021-08-16'),
+              repeats: '1w',
+              description: 'Send to Long-Term Savings',
+              amount: currency('-175'),
+            },
+            {
+              id: 8,
+              date: dayjs('2021-08-12'),
+              repeats: '1M',
+              description: 'Rent',
+              amount: currency('-1300'),
+            },
+            {
+              id: 9,
+              date: dayjs('2021-08-23'),
+              repeats: '1M',
+              description: 'Apple Music Subscription',
+              amount: currency('-10.91'),
+            },
+            {
+              id: 10,
+              date: dayjs('2021-12-29'),
+              repeats: '6M',
+              description: 'Car Insurance',
+              amount: currency('-653.20'),
+            },
+          ],
+          forecast: [],
+        },
+        init() {
+          this.transactions.source = this.transactions.source.slice().sort(function(a, b) { return a.date - b.date });
+
+          this.forecastStartDate = this.transactions.source[0].date.startOf('day');
+          this.forecastEndDate   = this.forecastStartDate.add(this.timespanMonths - 1, 'month').endOf('month');
+
+          this.generateForecast();
+          this.setupLineChart(this.formatChartData(this.transactions.forecast));
+        },
+        generateForecast() {
+          let forecast = [];
+          let balance = currency(0);
+
+          this.transactions.source.forEach(function(transaction) {
+            forecast.push({
+              date: transaction.date,
+              repeats: transaction.repeats,
+              isRepeat: false,
+              description: transaction.description,
+              amount: transaction.amount,
+            });
+
+            if (transaction.repeats) {
+              let nextRepeatedTransaction = this.getNextRepeatedTransaction(transaction);
+
+              while (nextRepeatedTransaction.date < this.forecastEndDate) {
+                forecast.push(nextRepeatedTransaction);
+                nextRepeatedTransaction = this.getNextRepeatedTransaction(nextRepeatedTransaction);
+              }
+            }
+          }, this);
+
+          // TODO: When multiple transactions happen on same day, sort expenses before income
+          this.transactions.forecast = forecast.slice().sort(function(a, b) { return a.date - b.date });
+
+          this.transactions.forecast.forEach(function(transaction) {
+            balance             = balance.add(transaction.amount);
+            transaction.balance = balance;
+          });
+        },
+        copyTransaction(transaction) {
+          let newTransaction = JSON.parse(JSON.stringify(transaction));
+          this.enrichJsonParsedTransaction(newTransaction);
+          return newTransaction;
+        },
+        enrichJsonParsedTransaction(transaction) {
+          transaction.date   = dayjs(transaction.date);
+          transaction.amount = currency(transaction.amount);
+        },
+        getNextRepeatedTransaction(transaction) {
+          if (!transaction.repeats) {
+            throw new Error('This transaction does not repeat');
+          }
+
+          let repeatFrequency = transaction.repeats.substring(0, transaction.repeats.length - 1);
+          let repeatUnit      = transaction.repeats.substring(transaction.repeats.length - 1);
+          let nextTransaction = this.copyTransaction(transaction);
+
+          if (['d', 'w', 'M', 'Q', 'y'].indexOf(repeatUnit) === -1) {
+            throw new Error(`The time unit for repeating transactions is invalid. '${repeatUnit}' given. Must be one of: d, w, M, Q, y`);
+          }
+
+          nextTransaction.date = nextTransaction.date.add(repeatFrequency, repeatUnit);
+          nextTransaction.isRepeat = true;
+
+          return nextTransaction;
+        },
+        formatDateForDisplay(date) {
+          if (date.year() === dayjs().year()) {
+            return date.format('MMM D');
+          }
+
+          return date.format('MMM D, YYYY');
+        },
+        formatAmountForDisplay(amount) {
+          return amount.format({ symbol: '', negativePattern: `(!#)` });
+        },
+        formatRepeatsForDisplay(repeats) {
+          if (repeats === '1w') {
+            return 'Weekly';
+          }
+
+          if (repeats === '2w') {
+            return 'Every Other Week';
+          }
+
+          if (repeats === '1M') {
+            return 'Monthly';
+          }
+
+          if (repeats === '6M') {
+            return 'Every 6 Months';
+          }
+
+          return repeats;
+        },
+        formatChartData(forecastTransactions) {
+          let lastDateProcessed = null;
+
+          forecastTransactions.reverse();
+
+          const chartData = forecastTransactions.filter(transaction => {
+            if (lastDateProcessed && lastDateProcessed.isSame(transaction.date, 'day')) {
+              return false;
+            }
+
+            lastDateProcessed = transaction.date;
+            return true;
+          });
+
+          chartData.reverse();
+          forecastTransactions.reverse();
+
+          return chartData.map(transaction => ({
+            x: this.formatDateForDisplay(transaction.date),
+            y: transaction.balance.value,
+          }));
+        },
+        // TODO: Bundle dates on X axis
+        // TODO: Add subtle vertical lines to separate months
+        // TODO: Add a trendline
+        setupLineChart(chartData) {
+          document.addEventListener('DOMContentLoaded', () => {
+            Chart.defaults.font.family = "'Inter',ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'";
+
+            const lineChart = document.getElementById('forecastLineChart').getContext('2d');
+            this.forecastLineChart = new Chart(lineChart, {
+              type: 'line',
+              data: {
+                datasets: [{
+                  label: 'End of Day Balance',
+                  cubicInterpolationMode: 'monotone',
+                  borderWidth: 2,
+                  data: chartData,
+                }]
+              },
+              options: {
+                interaction: {
+                  intersect: false,
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true
+                  }
+                },
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  annotation: {
+                    annotations: {
+                      zeroline: {
+                        type: 'line',
+                        scaleID: 'y',
+                        value: 0,
+                        borderColor: '#FECACA',
+                        borderWidth: 1,
+                      },
+                    }
+                  }
+                },
+              }
+            });
+          });
+        },
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
