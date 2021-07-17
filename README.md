@@ -1,5 +1,7 @@
 # Cash Flow Forecast
 
+**Save some, give some, spend some. And keep it above zero.**
+
 A simple app for forecasting the cash flow in and out of a single account. It's extremely useful for keeping your finances in check when recurring transactions don't all occur on the same cycle, e.g. monthly rent payments, bi-weekly paychecks, and weekly meal kit subscriptions.
 
 ## Security
