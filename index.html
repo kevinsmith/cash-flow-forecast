@@ -178,7 +178,7 @@
           this.transactions.source = this.transactions.source.slice().sort(function(a, b) { return a.date - b.date });
 
           this.forecastStartDate = this.transactions.source[0].date.startOf('day');
-          this.forecastEndDate   = this.forecastStartDate.add(this.timespanMonths - 1, 'month').endOf('month');
+          this.forecastEndDate   = this.forecastStartDate.add(this.timespanMonths, 'month').endOf('month');
 
           this.generateForecast();
           this.setupLineChart(this.formatChartData(this.transactions.forecast));
