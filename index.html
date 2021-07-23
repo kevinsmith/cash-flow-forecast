@@ -24,8 +24,9 @@
   <script defer src="https://unpkg.com/currency.js@^2/dist/currency.min.js"></script>
   <script defer src="https://unpkg.com/dayjs@^1/dayjs.min.js"></script>
   <script defer src="https://unpkg.com/alpinejs@^3/dist/cdn.min.js"></script>
-  <script defer src="https://unpkg.com/chart.js@^3/dist/chart.min.js"></script>
-  <script defer src="https://unpkg.com/chartjs-plugin-annotation@^1/dist/chartjs-plugin-annotation.min.js"></script>
+  <script src="https://cdn.amcharts.com/lib/4/core.js"></script>
+  <script src="https://cdn.amcharts.com/lib/4/charts.js"></script>
+  <script src="https://cdn.amcharts.com/lib/4/themes/animated.js"></script>
 </head>
 
 <body>
@@ -36,7 +37,7 @@
     Save some, give some, spend some. And keep it above zero.
   </div>
 
-  <canvas id="forecastLineChart" width="400" height="150" class="mb-10"></canvas>
+  <div id="chartdiv" class="mb-10 w-full h-80"></div>
 
   <div class="flex flex-col">
     <div class="-my-2 mb-6 overflow-x-auto sm:-mx-6 lg:-mx-8">
@@ -292,55 +293,77 @@
           forecastTransactions.reverse();
 
           return chartData.map(transaction => ({
-            x: this.formatDateForDisplay(transaction.date),
-            y: transaction.balance.value,
+            date: transaction.date.format('YYYY-MM-DD'),
+            value: transaction.balance.value,
           }));
         },
-        // TODO: Bundle dates on X axis
-        // TODO: Add subtle vertical lines to separate months
         // TODO: Add a trendline
         setupLineChart(chartData) {
-          document.addEventListener('DOMContentLoaded', () => {
-            Chart.defaults.font.family = "'Inter',ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'";
+          am4core.ready(function() {
+            am4core.useTheme(am4themes_animated);
 
-            const lineChart = document.getElementById('forecastLineChart').getContext('2d');
-            this.forecastLineChart = new Chart(lineChart, {
-              type: 'line',
-              data: {
-                datasets: [{
-                  label: 'End of Day Balance',
-                  cubicInterpolationMode: 'monotone',
-                  borderWidth: 2,
-                  data: chartData,
-                }]
-              },
-              options: {
-                interaction: {
-                  intersect: false,
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true
-                  }
-                },
-                plugins: {
-                  legend: {
-                    display: false,
-                  },
-                  annotation: {
-                    annotations: {
-                      zeroline: {
-                        type: 'line',
-                        scaleID: 'y',
-                        value: 0,
-                        borderColor: '#FECACA',
-                        borderWidth: 1,
-                      },
-                    }
-                  }
-                },
-              }
-            });
+            var chart = am4core.create("chartdiv", am4charts.XYChart);
+
+            chart.data = chartData;
+            chart.dateFormatter.inputDateFormat = "yyyy-MM-dd";
+
+            var dateAxis = chart.xAxes.push(new am4charts.DateAxis());
+            var valueAxis = chart.yAxes.push(new am4charts.ValueAxis());
+
+            chart.fontSize = '.75rem';
+
+            var series = chart.series.push(new am4charts.LineSeries());
+            series.dataFields.valueY = "value";
+            series.dataFields.dateX = "date";
+            series.strokeWidth = 2;
+            series.stroke = am4core.color("#60A5FA");
+            series.tensionX = 0.90;
+
+            // Drop-shaped tooltips
+            series.tooltipText = "[bold]{date.formatDate('MMM d, YYYY')}[/]\nEnd of Day Balance: {value}"
+            series.tooltip.fontSize = '.875rem';
+            series.tooltip.background.cornerRadius = 8;
+            series.tooltip.background.strokeOpacity = 0;
+            series.tooltip.pointerOrientation = "horizontal";
+            series.tooltip.label.minWidth = 40;
+            series.tooltip.label.minHeight = 40;
+            series.tooltip.label.textAlign = "left";
+            series.tooltip.label.textValign = "middle";
+            series.tooltip.getFillFromObject = false;
+            series.tooltip.background.fill = am4core.color("#6B7280");
+
+            // Change color when the line drops below 0
+            var range = valueAxis.createSeriesRange(series);
+            range.value = 0;
+            range.endValue = -1000000;
+            range.contents.stroke = am4core.color("#DC2626");
+            range.contents.fill = range.contents.stroke;
+            range.contents.strokeOpacity = 0.7;
+            range.contents.fillOpacity = 0.1;
+
+            // Make bullets grow on hover
+            var bullet = series.bullets.push(new am4charts.CircleBullet());
+            bullet.circle.strokeWidth = 2;
+            bullet.circle.radius = 4;
+            bullet.circle.fill = am4core.color("#fff");
+
+            var bullethover = bullet.states.create("hover");
+            bullethover.properties.scale = 1.3;
+
+            chart.cursor = new am4charts.XYCursor();
+            chart.cursor.lineY.disabled = true;
+            chart.cursor.xAxis = dateAxis;
+            chart.cursor.fullWidthLineX = true;
+            chart.cursor.lineX.strokeWidth = 0;
+            chart.cursor.lineX.fill = am4core.color("#374151");
+            chart.cursor.lineX.fillOpacity = 0.1;
+            valueAxis.cursorTooltipEnabled = false;
+            dateAxis.cursorTooltipEnabled = false;
+
+            chart.scrollbarX = new am4core.Scrollbar();
+            chart.scrollbarX.parent = chart.bottomAxesContainer;
+
+            dateAxis.keepSelection = true;
           });
         },
       }
