@@ -26,6 +26,7 @@
   <script defer src="https://unpkg.com/alpinejs@^3/dist/cdn.min.js"></script>
   <script src="https://cdn.amcharts.com/lib/4/core.js"></script>
   <script src="https://cdn.amcharts.com/lib/4/charts.js"></script>
+  <script src="https://cdn.amcharts.com/lib/4/plugins/regression.js"></script>
   <script src="https://cdn.amcharts.com/lib/4/themes/animated.js"></script>
 </head>
 
@@ -297,7 +298,6 @@
             value: transaction.balance.value,
           }));
         },
-        // TODO: Add a trendline
         setupLineChart(chartData) {
           am4core.ready(function() {
             am4core.useTheme(am4themes_animated);
@@ -312,6 +312,26 @@
 
             chart.fontSize = '.75rem';
 
+            // Add trendline underneath line chart
+            var regseries = chart.series.push(new am4charts.LineSeries());
+            regseries.dataFields.valueY = "value";
+            regseries.dataFields.dateX = "date";
+            regseries.strokeWidth = 2;
+            regseries.stroke = am4core.color("#E5E7EB");
+
+            var reg = regseries.plugins.push(new am4plugins_regression.Regression());
+
+            reg.events.on("processed", function(ev) {
+              if (ev.target.result.equation[0] > 0) {
+                // Green trendline if the trend is positive
+                regseries.stroke = am4core.color("#6EE7B7");
+              } else {
+                // Red trendline if the trend is negative
+                regseries.stroke = am4core.color("#FCA5A5");
+              }
+            });
+
+            // Add line chart
             var series = chart.series.push(new am4charts.LineSeries());
             series.dataFields.valueY = "value";
             series.dataFields.dateX = "date";
